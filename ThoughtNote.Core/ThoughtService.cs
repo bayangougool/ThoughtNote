@@ -33,8 +33,10 @@ public class ThoughtService
 
     private SqliteConnection Open()
     {
-        return new SqliteConnection(
+        var conn = new SqliteConnection(
             $"Data Source={_dbPath}");
+        conn.Open(); // ⭐これ！！
+        return conn;
     }
 
     private void InitDB()
@@ -53,7 +55,8 @@ public class ThoughtService
             priority INTEGER,
             is_task INTEGER NOT NULL,
             tags TEXT,
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            deleted INTEGER DEFAULT 0
         );
         """;
 
@@ -168,4 +171,91 @@ public class ThoughtService
         return list;
     }
 
+    public void DeleteThought(long id)
+    {
+        using var conn = Open();
+
+        //--------------------------------
+        // 子ノード存在チェック
+        //--------------------------------
+
+        var childCmd =
+        conn.CreateCommand();
+
+        childCmd.CommandText =
+        "SELECT COUNT(*) FROM thoughts WHERE parent_id=@p";
+
+        childCmd.Parameters.AddWithValue("@p", id);
+
+        var childCount =
+        (long)(childCmd.ExecuteScalar() ?? 0);
+
+        //--------------------------------
+        // 作成日取得
+        //--------------------------------
+
+        var getCmd =
+        conn.CreateCommand();
+
+        getCmd.CommandText =
+        "SELECT created_at FROM thoughts WHERE id=@id";
+
+        getCmd.Parameters.AddWithValue("@id", id);
+
+        var createdText =
+        getCmd.ExecuteScalar()
+        ?.ToString();
+
+        if (createdText == null)
+            return;
+
+        var created =
+        DateTime.Parse(createdText);
+
+        var today =
+        DateTime.Today;
+
+        //--------------------------------
+        // 完全削除条件
+        //--------------------------------
+
+        bool fullDelete =
+            childCount == 0
+            && created.Date == today;
+
+        if (fullDelete)
+        {
+            var del =
+            conn.CreateCommand();
+
+            del.CommandText =
+            "DELETE FROM thoughts WHERE id=@id";
+
+            del.Parameters.AddWithValue("@id", id);
+
+            del.ExecuteNonQuery();
+
+            Console.WriteLine(
+            "🧹完全削除しました");
+
+            return;
+        }
+
+        //--------------------------------
+        // 履歴削除
+        //--------------------------------
+
+        var soft =
+        conn.CreateCommand();
+
+        soft.CommandText =
+        "UPDATE thoughts SET deleted=1 WHERE id=@id";
+
+        soft.Parameters.AddWithValue("@id", id);
+
+        soft.ExecuteNonQuery();
+
+        Console.WriteLine(
+        "📚履歴として残しました");
+    }
 }

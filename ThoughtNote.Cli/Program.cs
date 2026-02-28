@@ -19,6 +19,8 @@ while (true)
 """
 1 追加
 2 Tree表示
+3 削除
+4 タグ説明
 0 終了
 """
 );
@@ -142,6 +144,21 @@ while (true)
     if (input == "2")
     {
         ShowTree(service);
+    }
+    else if (input == "3")
+    {
+        Console.Write("削除ID:");
+
+        if (long.TryParse(
+            Console.ReadLine(),
+            out var id))
+        {
+            service.DeleteThought(id);
+        }
+    }
+    else if (input == "4")
+    {
+        ShowTagHelp();
     }
 }
 
@@ -295,4 +312,37 @@ List<Thought> list)
     Console.WriteLine(
 "💬 " + pool[rand.Next(
 pool.Count)]);
+}
+
+static void ShowTagHelp()
+{
+    Console.WriteLine();
+
+    Console.WriteLine("#健康 食事・運動・睡眠のコメント");
+
+    Console.WriteLine("#習慣 怠惰な方へのコメント");
+
+    Console.WriteLine("#お金 無駄遣い・節約・収入");
+
+    Console.WriteLine("#恐怖 不安や未知が理由の時");
+
+    Console.WriteLine("#逃避 自己防衛です。えへん。");
+
+    Console.WriteLine("#失敗 凹んだ時にどうぞ");
+
+    Console.WriteLine("#原因 対策が進まない時");
+
+    Console.WriteLine("#改善 最優先。理由説明を要求します");
+
+    Console.WriteLine();
+
+    Console.WriteLine("優先度1 一週間以内");
+
+    Console.WriteLine("優先度2 二週間以内");
+
+    Console.WriteLine("優先度3 一か月以内");
+
+    Console.WriteLine("優先度4 期限未定。でも考えましょう");
+
+    Console.WriteLine("優先度5 なぜ選んだ？言語化しなさい！");
 }
