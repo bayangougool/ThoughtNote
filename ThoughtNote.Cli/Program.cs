@@ -1,123 +1,63 @@
 ﻿using System;
 using ThoughtNote.Core;
 
-var service =
-new ThoughtService("C:\\Users\\ivonu\\ThoughtNote\\thoughtnote.db");
+var service = new ThoughtService();
 
-Console.WriteLine("思考ノートCLI");
+Console.WriteLine("ThoughtNote CLI");
 
 while (true)
 {
-    Console.WriteLine(@"
-
-add 追加
-tree ツリー
-del 削除
-tasks 未完了タスク
-today 今日ログ
-exit 終了
-
-");
-
     Console.Write("> ");
 
-    var cmd =
-    Console.ReadLine()?.Trim();
+    var input = Console.ReadLine();
 
-    if (cmd == "exit")
+    if (input == "exit")
         break;
 
-    switch (cmd)
+    if (input == "tree")
     {
+        service.ShowTree();
+        continue;
+    }
 
-        case "tree":
+    if (input == "topic")
+    {
+        Console.Write("タイトル:");
+        var t = Console.ReadLine();
 
-            service.PrintTree();
+        Console.Write("idea or task:");
+        var c = Console.ReadLine();
 
-            break;
+        Console.Write("priority:");
+        int p =
+        int.Parse(Console.ReadLine());
 
-        case "tasks":
+        service.CreateTopic(t, c, p);
+    }
 
-            service.ShowTasks();
+    if (input == "tag")
+    {
+        Console.Write("nodeId:");
+        int id =
+        int.Parse(Console.ReadLine());
 
-            break;
+        Console.Write("tag:");
+        var tag =
+        Console.ReadLine();
 
-        case "today":
+        service.AddTag(id, tag);
+    }
 
-            service.ShowToday();
+    if (input == "comment")
+    {
+        Console.Write("tag:");
+        var tag =
+        Console.ReadLine();
 
-            break;
+        Console.Write("comment:");
+        var com =
+        Console.ReadLine();
 
-        case "del":
-
-            Console.Write("削除ID:");
-
-            int id = int.Parse(
-            Console.ReadLine() ?? "0");
-
-            service.DeleteNode(id);
-
-            Console.WriteLine("削除しました");
-
-            break;
-
-        case "add":
-
-            Console.Write("タイトル:");
-
-            var title =
-            Console.ReadLine();
-
-            Console.Write(
-            "親ID(トピック=Enter):");
-
-            var parent =
-            Console.ReadLine();
-
-            int? parentId = null;
-
-            string category = "idea";
-
-            if (string.IsNullOrWhiteSpace(parent))
-            {
-                Console.Write(
-                "カテゴリ idea/task:");
-
-                category =
-                Console.ReadLine() ?? "idea";
-            }
-            else
-            {
-                parentId =
-                int.Parse(parent);
-            }
-
-            Console.Write(
-            "優先度1-5:");
-
-            int prio =
-            int.Parse(
-            Console.ReadLine() ?? "1");
-
-            service.AddNode(
-            title ?? "無題",
-            category,
-            prio,
-            parentId);
-
-            Console.WriteLine(
-            "追加しました");
-
-            break;
-
-        default:
-
-            Console.WriteLine(
-            "不明コマンド");
-
-            break;
-
+        service.AddComment(tag, com);
     }
 }
-
-Console.WriteLine("終了");
