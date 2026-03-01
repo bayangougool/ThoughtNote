@@ -23,10 +23,19 @@ public class ThoughtService
 {
     private readonly string _dbPath;
 
+    // ⭐これが connectionString の正体
+    private readonly string _connectionString;
+
+    // コンストラクタ
     public ThoughtService(string baseDir)
     {
-        _dbPath =
+        // DBの場所
+        var dbPath =
             Path.Combine(baseDir, "thoughtnote.db");
+
+        // SQLite 接続文字列生成
+        _connectionString =
+            $"Data Source={dbPath}";
 
         InitDB();
     }
@@ -55,8 +64,8 @@ public class ThoughtService
             priority INTEGER,
             is_task INTEGER NOT NULL,
             tags TEXT,
-            created_at TEXT NOT NULL,
-            deleted INTEGER DEFAULT 0
+            created_at TEXT NOT NULL,            
+            is_deleted INTEGER NOT NULL DEFAULT 0 -- ⭐履歴フラグ
         );
         """;
 
@@ -64,6 +73,35 @@ public class ThoughtService
     }
 
     //====================
+
+    public List<Thought> GetActiveThoughts()
+    {
+        using var con = new SqliteConnection(_connectionString);
+        con.Open();
+
+        var cmd = con.CreateCommand();
+
+        // ⭐履歴は出さない！！
+        cmd.CommandText =
+    @"
+SELECT *
+FROM thoughts
+WHERE is_deleted = 0
+ORDER BY id;
+";
+
+        var reader = cmd.ExecuteReader();
+
+        var list = new List<Thought>();
+
+        while (reader.Read())
+        {
+            list.Add(ReadThought(reader));
+        }
+
+        return list;
+    }
+
 
     public long AddThought(
         string title,
