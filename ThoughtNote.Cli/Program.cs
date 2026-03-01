@@ -97,15 +97,15 @@ while (true)
                         service.AddThought(
                             title,
                             null,
+                            "Idea",
                             priority,
-                            true,
                             "");
 
                         service.AddThought(
                             "理由:" + reason,
                             id,
-                            null,
-                            false,
+                            "Task",
+                            priority,
                             "#改善");
 
                         Console.WriteLine(
@@ -131,8 +131,8 @@ while (true)
         service.AddThought(
             title,
             parentId,
+            "Idea",
             priority,
-            isTask,
             tags);
 
         Console.WriteLine(
@@ -218,8 +218,10 @@ List<Thought>> map)
         // ⭐ROOTだけ表示
         if (node.ParentId == null)
         {
+
+
             var type =
-            node.IsTask
+            node.Type == "Task"
             ? "[Task]"
             : "[Idea]";
 

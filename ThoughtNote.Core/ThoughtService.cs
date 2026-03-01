@@ -2,163 +2,257 @@
 
 namespace ThoughtNote.Core;
 
-public class Thought
-{
-    public long Id { get; set; }
-
-    public string Title { get; set; } = "";
-
-    public long? ParentId { get; set; }
-
-    public int? Priority { get; set; }
-
-    public bool IsTask { get; set; }
-
-    public string Tags { get; set; } = "";
-
-    public DateTime CreatedAt { get; set; }
-}
-
+/// <summary>
+/// 思考ノートの全ロジック
+/// SQLite 管理
+/// ノード CRUD
+/// ゴミ箱
+/// タグ
+/// コメント生成
+/// </summary>
 public class ThoughtService
 {
-    private readonly string _dbPath;
-
-    // ⭐これが connectionString の正体
     private readonly string _connectionString;
 
+    //==============================
     // コンストラクタ
+    //==============================
     public ThoughtService(string baseDir)
     {
-        // DBの場所
+        Directory.CreateDirectory(baseDir);
+
         var dbPath =
             Path.Combine(baseDir, "thoughtnote.db");
 
-        // SQLite 接続文字列生成
         _connectionString =
             $"Data Source={dbPath}";
 
         InitDB();
     }
 
-    private SqliteConnection Open()
-    {
-        var conn = new SqliteConnection(
-            $"Data Source={_dbPath}");
-        conn.Open(); // ⭐これ！！
-        return conn;
-    }
-
+    //==============================
+    // DB初期化
+    //==============================
     private void InitDB()
     {
-        using var conn = Open();
-        conn.Open();
+        using var con =
+            new SqliteConnection(_connectionString);
 
-        var cmd = conn.CreateCommand();
+        con.Open();
+
+        // Thought
+        var cmd = con.CreateCommand();
 
         cmd.CommandText =
         """
         CREATE TABLE IF NOT EXISTS thoughts(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            parent_id INTEGER,
-            priority INTEGER,
-            is_task INTEGER NOT NULL,
-            tags TEXT,
-            created_at TEXT NOT NULL,            
-            is_deleted INTEGER NOT NULL DEFAULT 0 -- ⭐履歴フラグ
+
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        parent_id INTEGER,
+
+        title TEXT NOT NULL,
+
+        type TEXT,
+
+        priority INTEGER,
+
+        created_at TEXT NOT NULL,
+
+        deleted INTEGER NOT NULL DEFAULT 0
+
         );
         """;
 
         cmd.ExecuteNonQuery();
+
+        // ⭐ deleted 無かった旧DB救済
+        TryAddColumn(con,
+            "thoughts",
+            "deleted INTEGER NOT NULL DEFAULT 0");
+
+        // tags
+        cmd = con.CreateCommand();
+
+        cmd.CommandText =
+        """
+        CREATE TABLE IF NOT EXISTS tags(
+
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        name TEXT UNIQUE,
+
+        description TEXT
+
+        );
+        """;
+
+        cmd.ExecuteNonQuery();
+
+        // thought_tags
+        cmd = con.CreateCommand();
+
+        cmd.CommandText =
+        """
+        CREATE TABLE IF NOT EXISTS thought_tags(
+
+        thought_id INTEGER,
+
+        tag_id INTEGER
+
+        );
+        """;
+
+        cmd.ExecuteNonQuery();
+
+        SeedDefaultTags(con);
     }
 
-    //====================
-
-    public List<Thought> GetActiveThoughts()
+    //==============================
+    // カラム追加（安全）
+    //==============================
+    private void TryAddColumn(
+        SqliteConnection con,
+        string table,
+        string columnDef)
     {
-        using var con = new SqliteConnection(_connectionString);
+        try
+        {
+            var c = con.CreateCommand();
+
+            c.CommandText =
+                $"ALTER TABLE {table} ADD COLUMN {columnDef};";
+
+            c.ExecuteNonQuery();
+        }
+        catch
+        {
+            // already exists 無視
+        }
+    }
+
+    //==============================
+    // デフォルトタグ
+    //==============================
+    private void SeedDefaultTags(SqliteConnection con)
+    {
+        var tags = new Dictionary<string, string>
+        {
+            ["健康"] =
+            "食事・運動・睡眠",
+
+            ["習慣"] =
+            "怠惰改善",
+
+            ["お金"] =
+            "節約・収入",
+
+            ["恐怖"] =
+            "不安の整理",
+
+            ["逃避"] =
+            "自己防衛",
+
+            ["失敗"] =
+            "落ち込んだ時",
+
+            ["原因"] =
+            "止まった理由探し",
+
+            ["改善"] =
+            "最優先"
+        };
+
+        foreach (var t in tags)
+        {
+            var cmd = con.CreateCommand();
+
+            cmd.CommandText =
+            """
+            INSERT OR IGNORE INTO tags
+            (name,description)
+            VALUES($n,$d);
+            """;
+
+            cmd.Parameters.AddWithValue("$n", t.Key);
+            cmd.Parameters.AddWithValue("$d", t.Value);
+
+            cmd.ExecuteNonQuery();
+        }
+    }
+
+    //==============================
+    // 追加
+    //==============================
+    public long AddThought(
+        string title,
+        long? parentId,
+        string type,
+        int? priority,
+        String tags)
+    {
+        using var con =
+            new SqliteConnection(_connectionString);
+
         con.Open();
 
         var cmd = con.CreateCommand();
 
-        // ⭐履歴は出さない！！
-        cmd.CommandText =
-    @"
-SELECT *
-FROM thoughts
-WHERE is_deleted = 0
-ORDER BY id;
-";
-
-        var reader = cmd.ExecuteReader();
-
-        var list = new List<Thought>();
-
-        while (reader.Read())
-        {
-            list.Add(ReadThought(reader));
-        }
-
-        return list;
-    }
-
-
-    public long AddThought(
-        string title,
-        long? parentId,
-        int? priority,
-        bool isTask,
-        string tags)
-    {
-        using var conn = Open();
-        conn.Open();
-
-        var cmd = conn.CreateCommand();
-
         cmd.CommandText =
         """
         INSERT INTO thoughts
-        (title,parent_id,priority,is_task,tags,created_at)
-        VALUES
-        ($title,$parent,$priority,$task,$tags,$date);
+        (title,parent_id,type,priority,created_at,tags)
 
-        SELECT last_insert_rowid();
+        VALUES
+        ($t,$p,$type,$pri,$c,$tags);
         """;
 
-        cmd.Parameters.AddWithValue(
-            "$title", title);
+        cmd.Parameters.AddWithValue("$t", title);
 
         cmd.Parameters.AddWithValue(
-            "$parent",
-            (object?)parentId ?? DBNull.Value);
+            "$p",
+            parentId.HasValue ?
+            parentId.Value :
+            DBNull.Value);
 
         cmd.Parameters.AddWithValue(
-            "$priority",
-            (object?)priority ?? DBNull.Value);
+            "$type",
+            type ?? "");
 
         cmd.Parameters.AddWithValue(
-            "$task", isTask ? 1 : 0);
+            "$pri",
+            priority.HasValue ?
+            priority.Value :
+            DBNull.Value);
 
         cmd.Parameters.AddWithValue(
-            "$tags", tags ?? "");
+            "$tags",
+            tags ?? "");
 
         cmd.Parameters.AddWithValue(
-            "$date",
-            DateTime.Now.ToString("s"));
+            "$c",
+            DateTime.Now.ToString("yyyy-MM-dd"));
 
-        var result = cmd.ExecuteScalar();
+        cmd.ExecuteNonQuery();
 
-        if (result == null)
-            throw new Exception("Insert失敗");
+        var idCmd = con.CreateCommand();
 
-        return Convert.ToInt64(result);
+        idCmd.CommandText =
+            "SELECT last_insert_rowid();";
+
+        var obj = idCmd.ExecuteScalar();
+
+        return obj != null ? (long)obj : 0;
     }
+
 
     //====================
 
     public List<Thought> GetAll()
     {
-        using var conn = Open();
+        using var conn =
+            new SqliteConnection(_connectionString);
+
         conn.Open();
 
         var cmd = conn.CreateCommand();
@@ -191,8 +285,8 @@ ORDER BY id;
                 ? null
                 : reader.GetInt32(3);
 
-            t.IsTask =
-                reader.GetInt64(4) == 1;
+            t.Type =
+                reader.GetString(4);
 
             t.Tags =
                 reader.IsDBNull(5)
@@ -209,91 +303,254 @@ ORDER BY id;
         return list;
     }
 
-    public void DeleteThought(long id)
+    //==============================
+    // Active only
+    //==============================
+    public List<Thought> GetActiveThoughts()
     {
-        using var conn = Open();
+        using var con =
+            new SqliteConnection(_connectionString);
 
-        //--------------------------------
-        // 子ノード存在チェック
-        //--------------------------------
+        con.Open();
 
-        var childCmd =
-        conn.CreateCommand();
+        var cmd = con.CreateCommand();
 
-        childCmd.CommandText =
-        "SELECT COUNT(*) FROM thoughts WHERE parent_id=@p";
+        cmd.CommandText =
+        """
+        SELECT id,parent_id,title,
+        type,priority,created_at
 
-        childCmd.Parameters.AddWithValue("@p", id);
+        FROM thoughts
 
-        var childCount =
-        (long)(childCmd.ExecuteScalar() ?? 0);
+        WHERE deleted=0
 
-        //--------------------------------
-        // 作成日取得
-        //--------------------------------
+        ORDER BY id;
+        """;
 
-        var getCmd =
-        conn.CreateCommand();
+        var list = new List<Thought>();
 
-        getCmd.CommandText =
-        "SELECT created_at FROM thoughts WHERE id=@id";
+        using var r = cmd.ExecuteReader();
 
-        getCmd.Parameters.AddWithValue("@id", id);
-
-        var createdText =
-        getCmd.ExecuteScalar()
-        ?.ToString();
-
-        if (createdText == null)
-            return;
-
-        var created =
-        DateTime.Parse(createdText);
-
-        var today =
-        DateTime.Today;
-
-        //--------------------------------
-        // 完全削除条件
-        //--------------------------------
-
-        bool fullDelete =
-            childCount == 0
-            && created.Date == today;
-
-        if (fullDelete)
+        while (r.Read())
         {
-            var del =
-            conn.CreateCommand();
+            list.Add(new Thought
+            {
+                Id = r.GetInt64(0),
 
-            del.CommandText =
-            "DELETE FROM thoughts WHERE id=@id";
+                ParentId =
+                r.IsDBNull(1) ?
+                null :
+                r.GetInt64(1),
 
-            del.Parameters.AddWithValue("@id", id);
+                Title = r.GetString(2),
 
-            del.ExecuteNonQuery();
+                Type = r.IsDBNull(3) ?
+                "" :
+                r.GetString(3),
 
-            Console.WriteLine(
-            "🧹完全削除しました");
+                Priority =
+                r.IsDBNull(4) ?
+                null :
+                r.GetInt32(4),
 
-            return;
+                CreatedAt =
+                DateTime.Parse(
+                    r.GetString(5))
+            });
         }
 
-        //--------------------------------
-        // 履歴削除
-        //--------------------------------
-
-        var soft =
-        conn.CreateCommand();
-
-        soft.CommandText =
-        "UPDATE thoughts SET deleted=1 WHERE id=@id";
-
-        soft.Parameters.AddWithValue("@id", id);
-
-        soft.ExecuteNonQuery();
-
-        Console.WriteLine(
-        "📚履歴として残しました");
+        return list;
     }
+
+    //==============================
+    // 子存在チェック
+    //==============================
+    private bool HasChildren(
+        SqliteConnection con,
+        long id)
+    {
+        var cmd = con.CreateCommand();
+
+        cmd.CommandText =
+        """
+        SELECT COUNT(*)
+        FROM thoughts
+        WHERE parent_id=$id
+        AND deleted=0;
+        """;
+
+        cmd.Parameters.AddWithValue("$id", id);
+
+        var c = (long)cmd.ExecuteScalar()!;
+
+        return c > 0;
+    }
+
+    //==============================
+    // 作成日取得
+    //==============================
+    private DateTime GetCreated(
+        SqliteConnection con,
+        long id)
+    {
+        var cmd = con.CreateCommand();
+
+        cmd.CommandText =
+        """
+        SELECT created_at
+        FROM thoughts
+        WHERE id=$id;
+        """;
+
+        cmd.Parameters.AddWithValue("$id", id);
+
+        var s = (string)cmd.ExecuteScalar()!;
+
+        return DateTime.Parse(s);
+    }
+
+    //==============================
+    // 削除（神仕様）
+    //==============================
+    public void DeleteThought(long id)
+    {
+        using var con =
+            new SqliteConnection(_connectionString);
+
+        con.Open();
+
+        bool child =
+            HasChildren(con, id);
+
+        var created =
+            GetCreated(con, id);
+
+        bool today =
+            created.Date ==
+            DateTime.Today;
+
+        var cmd = con.CreateCommand();
+
+        // 完全削除
+        if (!child && today)
+        {
+            cmd.CommandText =
+            """
+            DELETE FROM thoughts
+            WHERE id=$id;
+            """;
+        }
+        else
+        {
+            // 履歴
+            cmd.CommandText =
+            """
+            UPDATE thoughts
+            SET deleted=1
+            WHERE id=$id;
+            """;
+        }
+
+        cmd.Parameters.AddWithValue("$id", id);
+
+        cmd.ExecuteNonQuery();
+    }
+
+    //==============================
+    // ゴミ箱
+    //==============================
+    public List<Thought> GetTrash()
+    {
+        using var con =
+            new SqliteConnection(_connectionString);
+
+        con.Open();
+
+        var cmd = con.CreateCommand();
+
+        cmd.CommandText =
+        """
+        SELECT id,title,created_at
+        FROM thoughts
+        WHERE deleted=1;
+        """;
+
+        var list = new List<Thought>();
+
+        using var r = cmd.ExecuteReader();
+
+        while (r.Read())
+        {
+            list.Add(
+            new Thought
+            {
+                Id = r.GetInt64(0),
+                Title = r.GetString(1),
+                CreatedAt =
+                DateTime.Parse(
+                    r.GetString(2))
+            });
+        }
+
+        return list;
+    }
+
+    //==============================
+    // 復元
+    //==============================
+    public void Restore(long id)
+    {
+        using var con =
+            new SqliteConnection(_connectionString);
+
+        con.Open();
+
+        var cmd = con.CreateCommand();
+
+        cmd.CommandText =
+        """
+        UPDATE thoughts
+        SET deleted=0
+        WHERE id=$id;
+        """;
+
+        cmd.Parameters.AddWithValue("$id", id);
+
+        cmd.ExecuteNonQuery();
+    }
+
+    //==============================
+    // タグ一覧
+    //==============================
+    public List<(string, string)> GetTagDescriptions()
+    {
+        using var con =
+            new SqliteConnection(_connectionString);
+
+        con.Open();
+
+        var cmd = con.CreateCommand();
+
+        cmd.CommandText =
+        """
+        SELECT name,description
+        FROM tags;
+        """;
+
+        var list =
+            new List<(string, string)>();
+
+        using var r =
+            cmd.ExecuteReader();
+
+        while (r.Read())
+        {
+            list.Add(
+            (r.GetString(0),
+             r.GetString(1)));
+        }
+
+        return list;
+    }
+
 }
