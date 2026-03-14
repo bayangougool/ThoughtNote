@@ -8,4 +8,9 @@
     <UseWPF>true</UseWPF>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\ThoughtNote.Core\ThoughtNote.Core.csproj" />
+    <ProjectReference Include="..\ThoughtNote.Infrastructure\ThoughtNote.Infrastructure.csproj" />
+  </ItemGroup>
+
 </Project>

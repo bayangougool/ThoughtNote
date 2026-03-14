@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="ThoughtNote.Cli/ThoughtNote.Cli.csproj" />
+  <Project Path="ThoughtNote.Core/ThoughtNote.Core.csproj" />
+  <Project Path="ThoughtNote.Infrastructure/ThoughtNote.Infrastructure.csproj" />
+  <Project Path="ThoughtNote.WPF/ThoughtNote.WPF.csproj" />
+</Solution>
