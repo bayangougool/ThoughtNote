@@ -1,7 +1,8 @@
 ﻿using Microsoft.Data.Sqlite;
 using ThoughtNote.Core;
 
-namespace ThoughtNote.Infrastructure
+namespace ThoughtNote.Infrastructure.Sqlite
+
 {
     /// <summary>
     /// 思考ノートの全ロジック

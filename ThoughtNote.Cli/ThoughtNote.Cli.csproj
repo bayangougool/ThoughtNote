@@ -2,8 +2,14 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+	<OutputType>Exe</OutputType>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ThoughtNote.Core\ThoughtNote.Core.csproj" />
+    <ProjectReference Include="..\ThoughtNote.Infrastructure\ThoughtNote.Infrastructure.csproj" />
+  </ItemGroup>
 
 </Project>

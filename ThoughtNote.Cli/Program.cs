@@ -1,4 +1,5 @@
 ﻿using ThoughtNote.Core;
+using ThoughtNote.Infrastructure;
 
 Console.OutputEncoding =
 System.Text.Encoding.UTF8;
