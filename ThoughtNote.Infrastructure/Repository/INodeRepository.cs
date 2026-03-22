@@ -22,6 +22,8 @@ namespace ThoughtNote.Infrastructure.Repository
         void Move(string nodeId, string newParentId);
 
         bool Exists(string id);
+
+        public List<Node> GetTree();
     }
 }
 

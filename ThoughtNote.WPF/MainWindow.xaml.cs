@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using Microsoft.Data.Sqlite;
+using System.Collections.Generic;
+using System.IO;
 using System.Windows;
 using System.Windows.Input;
 using ThoughtNote.Core;
@@ -17,36 +19,19 @@ namespace ThoughtNote.WPF
         {
             InitializeComponent();
 
-            _repository = new NodeRepository("Data Source=thoughtnote.db");
+            _repository = new NodeRepository(@"Data Source=C:\Users\ivonu\ThoughtNote\thoughtnote.db");
 
-            LoadTestData();
+            var conn = new SqliteConnection(@"Data Source=C:\Users\ivonu\ThoughtNote\thoughtnote.db");
+            conn.Open();
 
+            System.Windows.MessageBox.Show(conn.DataSource);
+            var file = conn.DataSource;
+            var size = new FileInfo(file).Length;
+            System.Windows.MessageBox.Show($"{file}\nサイズ: {size}");
+
+            nodes = _repository.GetTree();
+            MessageBox.Show(nodes.Count.ToString());
             NodeTree.ItemsSource = nodes;
-        }
-
-        void LoadTestData()
-        {
-            var root = new Node
-            {
-                Content = "🐑 荒ぶる羊の群れ"
-            };
-
-            var python = new Node
-            {
-                Content = "Python"
-            };
-
-            python.Children.Add(new Node { Content = "コーパス作成" });
-            python.Children.Add(new Node { Content = "モデル学習" });
-
-            root.Children.Add(python);
-
-            root.Children.Add(new Node
-            {
-                Content = "健康"
-            });
-
-            nodes.Add(root);
         }
 
         private void NodeTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
@@ -54,7 +39,7 @@ namespace ThoughtNote.WPF
             // ① 前のノード保存
             if (currentNode != null)
             {
-                currentNode.Body = BodyBox.Text;
+                currentNode.Content = BodyBox.Text;
 
                 SaveCurrentNode();
             }

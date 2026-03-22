@@ -3,6 +3,8 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using ThoughtNote.Core;
+using System.Windows;
+using System.Diagnostics;
 
 namespace ThoughtNote.Infrastructure.Repository
 {
@@ -106,10 +108,8 @@ namespace ThoughtNote.Infrastructure.Repository
             cmd.Parameters.AddWithValue("$id", node.Id);
             cmd.Parameters.AddWithValue("$parent", node.ParentId);
             cmd.Parameters.AddWithValue("$title", node.Title);
-            cmd.Parameters.AddWithValue("$body", node.Body);
+               // cmd.Parameters.AddWithValue("$body", node.Body);
             cmd.Parameters.AddWithValue("$order", node.OrderIndex);
-            cmd.Parameters.AddWithValue("$type", node.Type);
-            cmd.Parameters.AddWithValue("$status", node.Status);
             cmd.Parameters.AddWithValue("$created", node.CreatedAt);
             cmd.Parameters.AddWithValue("$updated", node.UpdatedAt);
 
@@ -137,7 +137,7 @@ namespace ThoughtNote.Infrastructure.Repository
             cmd.Parameters.AddWithValue("$order", node.OrderIndex);
             cmd.Parameters.AddWithValue("$id", node.Id);
 
-            //cmd.ExecuteNonQuery();
+            cmd.ExecuteNonQuery();
         }
 
         public void Delete(string id)
@@ -212,6 +212,65 @@ namespace ThoughtNote.Infrastructure.Repository
             var count = (long)cmd.ExecuteScalar();
 
             return count > 0;
+        }
+
+        public List<Node> GetTree()
+        {
+            using var conn = new SqliteConnection(_connectionString);
+            conn.Open();
+
+            var cmd = conn.CreateCommand();
+            cmd.CommandText =
+            """
+            SELECT id, parent_id, content, order_index
+            FROM nodes
+            
+            ORDER BY order_index
+            """;
+
+            using var reader = cmd.ExecuteReader();
+
+            // ① 全ノードを一旦リストに
+            var allNodes = new List<Node>();
+
+            while (reader.Read())
+            {
+                var id = reader["id"]?.ToString();
+                var content = reader["content"]?.ToString();
+                Debug.WriteLine($"id={id}\ncontent={content}");
+                
+                var node = new Node
+                {
+                    Id = reader.GetString(0),
+                    ParentId = reader.IsDBNull(1) ? null : reader.GetString(1),
+                    Content = reader.GetString(2),
+                    OrderIndex = reader.GetInt32(3),
+                    Children = new List<Node>()
+                };
+
+                allNodes.Add(node);
+            }
+
+            // ② id → Node の辞書
+            var dict = allNodes.ToDictionary(n => n.Id);
+
+            // ③ ルートノードリスト
+            var roots = new List<Node>();
+
+            // ④ 親子組み立て
+            foreach (var node in allNodes)
+            {
+                if (node.ParentId == null)
+                {
+                    roots.Add(node);
+                }
+                else if (dict.TryGetValue(node.ParentId, out var parent))
+                {
+                    parent.Children.Add(node);
+                }
+            }
+
+            return roots;
         }
     }
 }
