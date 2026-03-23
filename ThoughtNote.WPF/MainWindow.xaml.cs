@@ -66,22 +66,12 @@ namespace ThoughtNote.WPF
 
         void SaveCurrentNode()
         {
-            if (currentNode == null) return;
+            if (NodeTree.SelectedItem is not Node node)
+                return;
 
-            currentNode.Content = BodyBox.Text;
+            node.Content = BodyBox.Text; // ★これだけでUI更新される
 
-            _repository.Update(currentNode);
-
-            // ★これ追加
-           //ReloadTree();
-        }
-
-        void ReloadTree()
-        {
-            _isReloading = true;
-            nodes = _repository.GetTree();
-            NodeTree.ItemsSource = nodes;
-            _isReloading = false;
+            _repository.Update(node); // DB保存
         }
     }
 }

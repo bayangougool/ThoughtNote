@@ -1,14 +1,38 @@
-﻿using static System.Runtime.InteropServices.JavaScript.JSType;
+﻿using System.ComponentModel;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace ThoughtNote.Core
 {
-    public class Node
+
+
+    public class Node : INotifyPropertyChanged
     {
         public string Id { get; set; } = Guid.NewGuid().ToString();
 
         public string? ParentId { get; set; }
 
-        public string Content { get; set; } = "";
+        public event PropertyChangedEventHandler? PropertyChanged;
+
+        protected void OnPropertyChanged(string name)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
+        }
+
+        private string _content = "";
+
+        public string Content
+        {
+            get => _content;
+            set
+            {
+                if (_content == value) return;
+
+                _content = value;
+
+                OnPropertyChanged(nameof(Content));
+                OnPropertyChanged(nameof(Title)); // ★超重要
+            }
+        }
 
         public int OrderIndex { get; set; }
 
