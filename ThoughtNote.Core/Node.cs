@@ -22,10 +22,16 @@ namespace ThoughtNote.Core
         {
             get
             {
-                if (string.IsNullOrWhiteSpace(Content)) return "";
+                if (string.IsNullOrWhiteSpace(Content))
+                    return "";
 
-                var firstLine = Content.Split('\n').FirstOrDefault() ?? "";
-                return firstLine.Length > 40 ? firstLine.Substring(0, 40) + "…" : firstLine;
+                var firstLine = Content
+                    .Split(new[] { "\r\n", "\n" }, StringSplitOptions.None)[0]
+                    .Trim();
+
+                return firstLine.Length > 40
+                    ? firstLine.Substring(0, 40) + "…"
+                    : firstLine;
             }
         }
     }

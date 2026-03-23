@@ -14,6 +14,7 @@ namespace ThoughtNote.WPF
 
         private Node? currentNode;
         private INodeRepository _repository;
+        bool _isReloading = false; //無限ループ対策
 
         public MainWindow()
         {
@@ -21,27 +22,24 @@ namespace ThoughtNote.WPF
 
             _repository = new NodeRepository(@"Data Source=C:\Users\ivonu\ThoughtNote\thoughtnote.db");
 
-            var conn = new SqliteConnection(@"Data Source=C:\Users\ivonu\ThoughtNote\thoughtnote.db");
-            conn.Open();
-
-            System.Windows.MessageBox.Show(conn.DataSource);
-            var file = conn.DataSource;
-            var size = new FileInfo(file).Length;
-            System.Windows.MessageBox.Show($"{file}\nサイズ: {size}");
-
             nodes = _repository.GetTree();
-            MessageBox.Show(nodes.Count.ToString());
             NodeTree.ItemsSource = nodes;
         }
 
         private void NodeTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
         {
+            if (_isReloading)
+                return;
+
+            if (e.NewValue is not Node nodetype)
+                return;
+
             // ① 前のノード保存
             if (currentNode != null)
             {
                 currentNode.Content = BodyBox.Text;
 
-                SaveCurrentNode();
+                //SaveCurrentNode(); ノード移動ではメモリ上に保存のみとする。
             }
 
             // ② 新しいノード
@@ -73,6 +71,17 @@ namespace ThoughtNote.WPF
             currentNode.Content = BodyBox.Text;
 
             _repository.Update(currentNode);
+
+            // ★これ追加
+           //ReloadTree();
+        }
+
+        void ReloadTree()
+        {
+            _isReloading = true;
+            nodes = _repository.GetTree();
+            NodeTree.ItemsSource = nodes;
+            _isReloading = false;
         }
     }
 }
