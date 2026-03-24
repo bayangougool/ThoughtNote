@@ -13,9 +13,9 @@
 
         <!-- Tree -->
         <TreeView Name="NodeTree"
-                  SelectedItemChanged="NodeTree_SelectedItemChanged">
-
-            <TreeView.Resources>
+                  SelectedItemChanged="NodeTree_SelectedItemChanged"
+                  KeyDown="NodeTree_KeyDown">
+                <TreeView.Resources>
 
                 <!-- Node表示 -->
                 <HierarchicalDataTemplate DataType="{x:Type core:Node}"

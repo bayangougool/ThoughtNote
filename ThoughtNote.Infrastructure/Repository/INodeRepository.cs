@@ -15,6 +15,8 @@ namespace ThoughtNote.Infrastructure.Repository
 
         void Create(Node node);
 
+        void Insert(Node node);
+
         void Update(Node node);
 
         void Delete(string id);

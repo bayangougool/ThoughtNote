@@ -50,6 +50,68 @@ namespace ThoughtNote.WPF
             }
         }
 
+        //Enter検知
+        private void NodeTree_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                CreateNewNode();
+                e.Handled = true; // ★重要（変な挙動防止）
+            }
+        }
+
+        //ノード生成（コア）
+        void CreateNewNode()
+        {
+            if (NodeTree.SelectedItem is not Node selected)
+                return;
+
+            var newNode = new Node
+            {
+                Id = Guid.NewGuid().ToString(),
+                ParentId = selected.ParentId, // ★同階層に作る
+                Content = "",
+                OrderIndex = selected.OrderIndex + 1,
+                CreatedAt = DateTime.Now,
+                UpdatedAt = DateTime.Now
+            };
+
+            _repository.Insert(newNode);
+
+            // ★UIにも追加（ここ重要）
+            var parent = FindParentNode(selected);
+
+            if (parent == null)
+            {
+                nodes.Add(newNode); // ルート
+            }
+            else
+            {
+                parent.Children.Add(newNode);
+            }
+        }
+
+        //親ノード取得
+        Node? FindParentNode(Node child)
+        {
+            return FindParentRecursive(nodes, child);
+        }
+
+        Node? FindParentRecursive(List<Node> list, Node target)
+        {
+            foreach (var node in list)
+            {
+                if (node.Children.Contains(target))
+                    return node;
+
+                var result = FindParentRecursive(node.Children, target);
+                if (result != null)
+                    return result;
+            }
+
+            return null;
+        }
+
         protected override void OnKeyDown(KeyEventArgs e)
         {
             if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.S)
@@ -59,10 +121,6 @@ namespace ThoughtNote.WPF
             }
         }
 
-        void SaveNode(Node node)
-        {
-            _repository.Update(node);
-        }
 
         void SaveCurrentNode()
         {

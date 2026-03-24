@@ -116,6 +116,44 @@ namespace ThoughtNote.Infrastructure.Repository
             cmd.ExecuteNonQuery();
         }
 
+        public void Insert(Node node)
+        {
+            using var conn = new SqliteConnection(_connectionString);
+            conn.Open();
+
+            var cmd = conn.CreateCommand();
+
+            cmd.CommandText =
+            """
+    INSERT INTO nodes (
+        id,
+        parent_id,
+        content,
+        order_index,
+        created_at,
+        updated_at
+    )
+    VALUES (
+        $id,
+        $parent_id,
+        $content,
+        $order,
+        $created,
+        $updated
+    );
+    """;
+
+            cmd.Parameters.AddWithValue("$id", node.Id);
+            cmd.Parameters.AddWithValue("$parent_id",
+                string.IsNullOrEmpty(node.ParentId) ? DBNull.Value : node.ParentId);
+            cmd.Parameters.AddWithValue("$content", node.Content ?? "");
+            cmd.Parameters.AddWithValue("$order", node.OrderIndex);
+            cmd.Parameters.AddWithValue("$created", node.CreatedAt.ToString("o"));
+            cmd.Parameters.AddWithValue("$updated", node.UpdatedAt.ToString("o"));
+
+            cmd.ExecuteNonQuery();
+        }
+
         public void Update(Node node)
         {
             using var conn = new SqliteConnection(_connectionString);
