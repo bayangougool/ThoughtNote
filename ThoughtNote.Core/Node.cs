@@ -1,5 +1,7 @@
-﻿using System.ComponentModel;
+﻿using System.Collections.ObjectModel;
+using System.ComponentModel;
 using static System.Runtime.InteropServices.JavaScript.JSType;
+
 
 namespace ThoughtNote.Core
 {
@@ -8,6 +10,9 @@ namespace ThoughtNote.Core
     public class Node : INotifyPropertyChanged
     {
         public string Id { get; set; } = Guid.NewGuid().ToString();
+
+        //新ノードに値が入力されたかを判断する際に利用。空ノードのインサート処理を防ぐ目的
+        public bool IsPersisted { get; set; } = false;
 
         public string? ParentId { get; set; }
 
@@ -40,14 +45,15 @@ namespace ThoughtNote.Core
         public DateTime UpdatedAt { get; set; }
         public DateTime? DeletedAt { get; set; }
 
-        public List<Node> Children { get; set; } = new();
+        public ObservableCollection<Node> Children { get; set; }
+                = new ObservableCollection<Node>();
 
-        public string Title
+    public string Title
         {
             get
             {
                 if (string.IsNullOrWhiteSpace(Content))
-                    return "";
+                    return "（新規ノード）";
 
                 var firstLine = Content
                     .Split(new[] { "\r\n", "\n" }, StringSplitOptions.None)[0]

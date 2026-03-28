@@ -73,10 +73,12 @@ namespace ThoughtNote.WPF
                 Content = "",
                 OrderIndex = selected.OrderIndex + 1,
                 CreatedAt = DateTime.Now,
-                UpdatedAt = DateTime.Now
+                UpdatedAt = DateTime.Now,
+                IsPersisted = false
+                //IsPersistedはfalseのまま（DBに保存されていない状態）
             };
 
-            _repository.Insert(newNode);
+            //_repository.Insert(newNode);
 
             // ★UIにも追加（ここ重要）
             var parent = FindParentNode(selected);
@@ -104,7 +106,7 @@ namespace ThoughtNote.WPF
                 if (node.Children.Contains(target))
                     return node;
 
-                var result = FindParentRecursive(node.Children, target);
+                var result = FindParentRecursive(node.Children.ToList(), target);
                 if (result != null)
                     return result;
             }
@@ -129,7 +131,15 @@ namespace ThoughtNote.WPF
 
             node.Content = BodyBox.Text; // ★これだけでUI更新される
 
-            _repository.Update(node); // DB保存
+            if (currentNode != null && !currentNode.IsPersisted)
+            {
+                _repository.Insert(currentNode); // DBインサート
+                node.IsPersisted = true; //インサート後は既存ノードに仲間入り
+            }
+            else
+            {
+                _repository.Update(node); // DB更新
+            }
         }
     }
 }

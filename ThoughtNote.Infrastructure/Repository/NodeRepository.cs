@@ -1,10 +1,12 @@
 ﻿using Microsoft.Data.Sqlite;
 using System;
 using System.Collections.Generic;
-using System.Text;
-using ThoughtNote.Core;
-using System.Windows;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Text;
+using System.Windows;
+using System.Xml.Linq;
+using ThoughtNote.Core;
 
 namespace ThoughtNote.Infrastructure.Repository
 {
@@ -82,7 +84,7 @@ namespace ThoughtNote.Infrastructure.Repository
         {
             var children = GetChildren(node.Id);
 
-            node.Children = children;
+            node.Children = new ObservableCollection<Node>(children);
 
             foreach (var child in children)
             {
@@ -227,7 +229,8 @@ namespace ThoughtNote.Infrastructure.Repository
                 OrderIndex = reader.GetInt32(3),
                 CreatedAt = reader.GetDateTime(4),
                 UpdatedAt = reader.GetDateTime(5),
-                DeletedAt = reader.IsDBNull(6) ? null : reader.GetDateTime(6)
+                DeletedAt = reader.IsDBNull(6) ? null : reader.GetDateTime(6),
+                IsPersisted = true // 既にDBに存在するノードはIsPersisted=true
             };
         }
 
@@ -262,7 +265,7 @@ namespace ThoughtNote.Infrastructure.Repository
             """
             SELECT id, parent_id, content, order_index
             FROM nodes
-            
+            WHERE status = 'active'
             ORDER BY order_index
             """;
 
@@ -283,7 +286,8 @@ namespace ThoughtNote.Infrastructure.Repository
                     ParentId = reader.IsDBNull(1) ? null : reader.GetString(1),
                     Content = reader.GetString(2),
                     OrderIndex = reader.GetInt32(3),
-                    Children = new List<Node>()
+                    IsPersisted = true, //DBから取得したノードは既に存在するのでtrue
+                    Children = new ObservableCollection<Node>()
                 };
 
                 allNodes.Add(node);
