@@ -1,7 +1,9 @@
 ﻿using Microsoft.Data.Sqlite;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using ThoughtNote.Core;
 using ThoughtNote.Infrastructure.Repository;
@@ -16,6 +18,14 @@ namespace ThoughtNote.WPF
         private INodeRepository _repository;
         bool _isReloading = false; //無限ループ対策
 
+        public Node? SelectedNode { get; set; } //選択用プロパティ。新規ノード作成後に利用
+
+        //仮説チップ（UI上の定型文挿入用）
+        Dictionary<string, string> chips = new()
+{
+    { "仮説", "仮説：\n・事実\n・仮説\n・反証\n" }
+};
+
         public MainWindow()
         {
             InitializeComponent();
@@ -24,6 +34,38 @@ namespace ThoughtNote.WPF
 
             nodes = _repository.GetTree();
             NodeTree.ItemsSource = nodes;
+        }
+
+        //Ctrl+Tショートカットでチップス展開
+        private void BodyBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (Keyboard.Modifiers == ModifierKeys.Control && e.Key == Key.T)
+            {
+                ExpandChipAtCursor();
+                e.Handled = true;
+            }
+        }
+
+        //カーソル位置の#キーワードをtipsから展開
+        void ExpandChipAtCursor()
+        {
+            var text = BodyBox.Text;
+
+            var pattern = @"#(.*?)#";
+            var match = Regex.Match(text, pattern);
+
+            if (match.Success)
+            {
+                var key = match.Groups[1].Value;
+
+                if (chips.ContainsKey(key))
+                {
+                    var expanded = chips[key];
+
+                    BodyBox.Text = text.Replace(match.Value, expanded);
+                    BodyBox.CaretIndex = BodyBox.Text.Length;
+                }
+            }
         }
 
         private void NodeTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
@@ -45,14 +87,15 @@ namespace ThoughtNote.WPF
             // ② 新しいノード
             if (NodeTree.SelectedItem is Node node)
             {
+                SelectedNode = node;
                 currentNode = node;
                 BodyBox.Text = node.Content;
             }
         }
 
-        //Enter検知
         private void NodeTree_KeyDown(object sender, KeyEventArgs e)
         {
+            //Enter検知
             if (e.Key == Key.Enter)
             {
                 CreateNewNode();
@@ -78,8 +121,6 @@ namespace ThoughtNote.WPF
                 //IsPersistedはfalseのまま（DBに保存されていない状態）
             };
 
-            //_repository.Insert(newNode);
-
             // ★UIにも追加（ここ重要）
             var parent = FindParentNode(selected);
 
@@ -90,7 +131,46 @@ namespace ThoughtNote.WPF
             else
             {
                 parent.Children.Add(newNode);
+                // ノードを新規ノードに移動
+                SelectedNode = newNode;
+
+                NodeTree.UpdateLayout();
+
+                var item = GetTreeViewItem(NodeTree, newNode);
+                if (item != null)
+                {
+                    item.IsSelected = true;
+                }
+
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    BodyBox.Focus();
+                    BodyBox.CaretIndex = BodyBox.Text.Length;
+                }));
+                //NodeTree.UpdateLayout();//新規作成したノードを選択状態にするためのレイアウト更新
             }
+        }
+
+        private TreeViewItem? GetTreeViewItem(ItemsControl parent, object item)
+        {
+            if (parent == null) return null;
+
+            var container = parent.ItemContainerGenerator.ContainerFromItem(item) as TreeViewItem;
+            if (container != null)
+                return container;
+
+            foreach (var child in parent.Items)
+            {
+                var parentContainer = parent.ItemContainerGenerator.ContainerFromItem(child) as TreeViewItem;
+                if (parentContainer != null)
+                {
+                    var result = GetTreeViewItem(parentContainer, item);
+                    if (result != null)
+                        return result;
+                }
+            }
+
+            return null;
         }
 
         //親ノード取得

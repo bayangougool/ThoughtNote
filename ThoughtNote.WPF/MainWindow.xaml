@@ -13,6 +13,7 @@
 
         <!-- Tree -->
         <TreeView Name="NodeTree"
+                  ItemsSource="{Binding nodes}"
                   SelectedItemChanged="NodeTree_SelectedItemChanged"
                   KeyDown="NodeTree_KeyDown">
                 <TreeView.Resources>
@@ -36,7 +37,8 @@
             <TextBox Name="BodyBox"
                      AcceptsReturn="True"
                      Height="400"
-                     TextWrapping="Wrap"/>
+                     TextWrapping="Wrap"
+                     KeyDown="BodyBox_KeyDown"/>
 
         </StackPanel>
 
