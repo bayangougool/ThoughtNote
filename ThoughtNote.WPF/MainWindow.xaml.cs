@@ -4,6 +4,7 @@ using System.IO;
 using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using ThoughtNote.Core;
 using ThoughtNote.Infrastructure.Repository;
@@ -80,8 +81,6 @@ namespace ThoughtNote.WPF
             if (currentNode != null)
             {
                 currentNode.Content = BodyBox.Text;
-
-                //SaveCurrentNode(); ノード移動ではメモリ上に保存のみとする。
             }
 
             // ② 新しいノード
@@ -96,61 +95,128 @@ namespace ThoughtNote.WPF
         private void NodeTree_KeyDown(object sender, KeyEventArgs e)
         {
             //Enter検知
-            if (e.Key == Key.Enter)
+            if (e.Key == Key.Enter && Keyboard.Modifiers == ModifierKeys.None)
             {
-                CreateNewNode();
-                e.Handled = true; // ★重要（変な挙動防止）
+                CreateChildNode();
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Enter && Keyboard.Modifiers == ModifierKeys.Control)
+            { //Ctrl+Enterで同階層にノード作成
+                CreateSiblingNode();
+                e.Handled = true;
             }
         }
 
-        //ノード生成（コア）
-        void CreateNewNode()
+        // 子ノード生成
+        void CreateChildNode()
         {
-            if (NodeTree.SelectedItem is not Node selected)
-                return;
+            AddNode(currentNode);
+        }
 
+        // 同階層にノード作成
+        void CreateSiblingNode()
+        {
+            var parent = FindParent(nodes, currentNode);
+
+            AddNode(parent);
+        }
+
+        // AddNodeは共通化。親ノードを受け取って子ノードを作成する。
+        void AddNode(Node parent)
+        {
             var newNode = new Node
             {
                 Id = Guid.NewGuid().ToString(),
-                ParentId = selected.ParentId, // ★同階層に作る
+                ParentId = parent.Id,
                 Content = "",
-                OrderIndex = selected.OrderIndex + 1,
+                OrderIndex = parent.OrderIndex + 1,
                 CreatedAt = DateTime.Now,
                 UpdatedAt = DateTime.Now,
                 IsPersisted = false
                 //IsPersistedはfalseのまま（DBに保存されていない状態）
             };
 
-            // ★UIにも追加（ここ重要）
-            var parent = FindParentNode(selected);
+            parent.Children.Add(newNode);
 
-            if (parent == null)
+            NodeTree.UpdateLayout();
+
+            var item = GetTreeViewItem(NodeTree, newNode);
+            if (item != null)
             {
-                nodes.Add(newNode); // ルート
+                item.IsSelected = true;
             }
-            else
+
+            Dispatcher.BeginInvoke(new Action(() =>
             {
-                parent.Children.Add(newNode);
-                // ノードを新規ノードに移動
-                SelectedNode = newNode;
-
-                NodeTree.UpdateLayout();
-
-                var item = GetTreeViewItem(NodeTree, newNode);
-                if (item != null)
-                {
-                    item.IsSelected = true;
-                }
-
-                Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    BodyBox.Focus();
-                    BodyBox.CaretIndex = BodyBox.Text.Length;
-                }));
-                //NodeTree.UpdateLayout();//新規作成したノードを選択状態にするためのレイアウト更新
-            }
+                BodyBox.Focus();
+            }));
         }
 
+        // 親ノードを再帰的に探す
+        Node? FindParent(IEnumerable<Node> nodes, Node target)
+        {
+            foreach (var node in nodes)
+            {
+                if (node.Children.Contains(target))
+                    return node;
+
+                var parent = FindParent(node.Children, target);
+                if (parent != null)
+                    return parent;
+            }
+
+            return null;
+        }
+
+        //ノード生成（コア）
+        //void CreateNewNode()
+        //{
+        //    if (NodeTree.SelectedItem is not Node selected)
+        //        return;
+
+        //    var newNode = new Node
+        //    {
+        //        Id = Guid.NewGuid().ToString(),
+        //        ParentId = selected.ParentId, // ★同階層に作る
+        //        Content = "",
+        //        OrderIndex = selected.OrderIndex + 1,
+        //        CreatedAt = DateTime.Now,
+        //        UpdatedAt = DateTime.Now,
+        //        IsPersisted = false
+        //        //IsPersistedはfalseのまま（DBに保存されていない状態）
+        //    };
+
+        //    // ★UIにも追加（ここ重要）
+        //    var parent = FindParentNode(selected);
+
+        //    if (parent == null)
+        //    {
+        //        nodes.Add(newNode); // ルート
+        //    }
+        //    else
+        //    {
+        //        parent.Children.Add(newNode);
+        //        // ノードを新規ノードに移動
+        //        SelectedNode = newNode;
+
+        //        NodeTree.UpdateLayout();
+
+        //        var item = GetTreeViewItem(NodeTree, newNode);
+        //        if (item != null)
+        //        {
+        //            item.IsSelected = true;
+        //        }
+
+        //        Dispatcher.BeginInvoke(new Action(() =>
+        //        {
+        //            BodyBox.Focus();
+        //            BodyBox.CaretIndex = BodyBox.Text.Length;
+        //        }));
+        //        //NodeTree.UpdateLayout();//新規作成したノードを選択状態にするためのレイアウト更新
+        //    }
+        //}
+
+        //選択ノード取得
         private TreeViewItem? GetTreeViewItem(ItemsControl parent, object item)
         {
             if (parent == null) return null;
@@ -174,25 +240,25 @@ namespace ThoughtNote.WPF
         }
 
         //親ノード取得
-        Node? FindParentNode(Node child)
-        {
-            return FindParentRecursive(nodes, child);
-        }
+        //Node? FindParentNode(Node child)
+        //{
+        //    return FindParentRecursive(nodes, child);
+        //}
 
-        Node? FindParentRecursive(List<Node> list, Node target)
-        {
-            foreach (var node in list)
-            {
-                if (node.Children.Contains(target))
-                    return node;
+        //Node? FindParentRecursive(List<Node> list, Node target)
+        //{
+        //    foreach (var node in list)
+        //    {
+        //        if (node.Children.Contains(target))
+        //            return node;
 
-                var result = FindParentRecursive(node.Children.ToList(), target);
-                if (result != null)
-                    return result;
-            }
+        //        var result = FindParentRecursive(node.Children.ToList(), target);
+        //        if (result != null)
+        //            return result;
+        //    }
 
-            return null;
-        }
+        //    return null;
+        //}
 
         protected override void OnKeyDown(KeyEventArgs e)
         {
